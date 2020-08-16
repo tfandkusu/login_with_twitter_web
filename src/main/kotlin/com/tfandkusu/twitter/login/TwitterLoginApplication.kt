@@ -8,24 +8,35 @@ import io.ktor.features.DefaultHeaders
 import io.ktor.html.respondHtml
 import io.ktor.routing.get
 import io.ktor.routing.routing
-import kotlinx.html.body
-import kotlinx.html.head
-import kotlinx.html.p
-import kotlinx.html.title
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.html.*
+import twitter4j.TwitterFactory
 
 fun Application.main() {
     install(DefaultHeaders)
     install(CallLogging)
+    val twitterApiKey = System.getenv("TWITTER_API_KEY")
+    val twitterApiSecretKey = System.getenv("TWITTER_API_SECRET_KEY")
+    val twitterRedirectUrl = System.getenv("TWITTER_REDIRECT_URL")
 
     routing {
         get("/") {
+            val loginUrl = withContext(Dispatchers.IO) {
+                val twitter = TwitterFactory().instance
+                twitter.setOAuthConsumer(twitterApiKey, twitterApiSecretKey)
+                val requestToken = twitter.getOAuthRequestToken(twitterRedirectUrl)
+                requestToken.authorizationURL
+            }
             call.respondHtml {
                 head {
-                    title { +"Ktor on Google App Engine standard environment" }
+                    title { +"Login with twitter" }
                 }
                 body {
                     p {
-                        +"Hello there! This is Ktor running on App Engine standard environment"
+                        a(href = loginUrl) {
+                            +"Login with twitter"
+                        }
                     }
                 }
             }
