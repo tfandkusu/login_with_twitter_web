@@ -9,7 +9,6 @@ import io.ktor.html.respondHtml
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.resource
 import io.ktor.http.content.static
-import io.ktor.response.respond
 import io.ktor.routing.get
 import io.ktor.routing.routing
 import io.ktor.sessions.*
@@ -18,6 +17,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.html.*
 import twitter4j.TwitterFactory
 import twitter4j.auth.RequestToken
+import twitter4j.conf.ConfigurationBuilder
+
 
 fun Application.main() {
     install(DefaultHeaders)
@@ -28,11 +29,16 @@ fun Application.main() {
     val twitterApiKey = System.getenv("TWITTER_API_KEY")
     val twitterApiSecretKey = System.getenv("TWITTER_API_SECRET_KEY")
     val twitterRedirectUrl = System.getenv("TWITTER_REDIRECT_URL")
+    val builder = ConfigurationBuilder()
+    builder.setOAuthConsumerKey(twitterApiKey)
+    builder.setOAuthConsumerSecret(twitterApiSecretKey)
+    builder.setIncludeEmailEnabled(true)
+    val configuration = builder.build()
+
     routing {
         get("/") {
             val twitterLogin = withContext(Dispatchers.IO) {
-                val twitter = TwitterFactory().instance
-                twitter.setOAuthConsumer(twitterApiKey, twitterApiSecretKey)
+                val twitter = TwitterFactory(configuration).instance
                 val requestToken = twitter.getOAuthRequestToken(twitterRedirectUrl)
                 TwitterLogin(requestToken.authorizationURL, requestToken.token, requestToken.tokenSecret)
             }
@@ -51,8 +57,7 @@ fun Application.main() {
             }
         }
         get("/redirect_to") {
-            val twitter = TwitterFactory().instance
-            twitter.setOAuthConsumer(twitterApiKey, twitterApiSecretKey)
+            val twitter = TwitterFactory(configuration).instance
             val session = call.sessions.get<MySession>()
             if (session == null) {
                 call.respondHtml(HttpStatusCode.Forbidden) {
@@ -70,8 +75,9 @@ fun Application.main() {
                 val tokenSecret = session.tokenSecret
                 // TODO パラメータチェックする
                 val oauthVerifier = call.request.queryParameters["oauth_verifier"]
-                val accessToken = withContext(Dispatchers.IO) {
+                val user = withContext(Dispatchers.IO) {
                     twitter.getOAuthAccessToken(RequestToken(token, tokenSecret), oauthVerifier)
+                    twitter.verifyCredentials()
                 }
                 call.respondHtml {
                     head {
@@ -80,7 +86,10 @@ fun Application.main() {
                     body {
                         p {
                             br {
-                                +"userId = %s".format(accessToken.userId)
+                                +"userId = %s".format(user.id)
+                            }
+                            br {
+                                +"email = %s".format(user.email)
                             }
                         }
                     }
