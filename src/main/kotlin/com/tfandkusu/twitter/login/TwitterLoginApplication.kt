@@ -7,6 +7,8 @@ import io.ktor.features.CallLogging
 import io.ktor.features.DefaultHeaders
 import io.ktor.html.respondHtml
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.resource
+import io.ktor.http.content.static
 import io.ktor.response.respond
 import io.ktor.routing.get
 import io.ktor.routing.routing
@@ -84,6 +86,10 @@ fun Application.main() {
                     }
                 }
             }
+        }
+        static("") {
+            resource("privacy_policy.html")
+            resource("term_of_service.html")
         }
     }
 }
